@@ -1,28 +1,9 @@
 import { useEffect, useState } from "react";
 import "./App.css";
-
-type Screen = "home" | "newCharacter" | "loadCharacter";
-
-type Race =
-  | "Human"
-  | "Elf"
-  | "Dwarf"
-  | "Orc"
-  | "Goblin"
-  | "Tiefling"
-  | "Centaur"
-  | "Dragonborn"
-  | "Vampire";
-
-type Character = {
-  id: string;
-  name: string;
-  race: Race;
-  level: number;
-  xp: number;
-  currentHp: number;
-  maxHp: number;
-};
+import Home from "./pages/Home";
+import CharacterSheet from "./pages/CharacterSheet";
+import type { Character, Race, Screen } from "./types/character";
+import { loadCharacters, saveCharacters } from "./storage/characterStorage";
 
 const races: Race[] = [
   "Human",
@@ -39,19 +20,17 @@ const races: Race[] = [
 function App() {
   const [screen, setScreen] = useState<Screen>("home");
   const [characters, setCharacters] = useState<Character[]>([]);
+  const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null);
   const [name, setName] = useState("");
   const [race, setRace] = useState<Race>("Human");
 
   useEffect(() => {
-    const saved = localStorage.getItem("d20-characters");
-    if (saved) {
-      setCharacters(JSON.parse(saved));
-    }
+    setCharacters(loadCharacters());
   }, []);
 
-  function saveCharacters(nextCharacters: Character[]) {
+  function updateCharacters(nextCharacters: Character[]) {
     setCharacters(nextCharacters);
-    localStorage.setItem("d20-characters", JSON.stringify(nextCharacters));
+    saveCharacters(nextCharacters);
   }
 
   function createCharacter() {
@@ -70,14 +49,24 @@ function App() {
       maxHp: 50,
     };
 
-    saveCharacters([...characters, newCharacter]);
+    updateCharacters([...characters, newCharacter]);
+    setSelectedCharacter(newCharacter);
     setName("");
     setRace("Human");
-    setScreen("loadCharacter");
+    setScreen("characterSheet");
   }
 
   function deleteCharacter(id: string) {
-    saveCharacters(characters.filter((character) => character.id !== id));
+    const nextCharacters = characters.filter((character) => character.id !== id);
+    updateCharacters(nextCharacters);
+
+    if (selectedCharacter?.id === id) {
+      setSelectedCharacter(null);
+    }
+  }
+
+  if (screen === "home") {
+    return <Home setScreen={setScreen} />;
   }
 
   if (screen === "newCharacter") {
@@ -135,12 +124,23 @@ function App() {
                     </p>
                   </div>
 
-                  <button
-                    className="danger"
-                    onClick={() => deleteCharacter(character.id)}
-                  >
-                    Delete
-                  </button>
+                  <div className="card-actions">
+                    <button
+                      onClick={() => {
+                        setSelectedCharacter(character);
+                        setScreen("characterSheet");
+                      }}
+                    >
+                      Open
+                    </button>
+
+                    <button
+                      className="danger"
+                      onClick={() => deleteCharacter(character.id)}
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -154,25 +154,16 @@ function App() {
     );
   }
 
-  return (
-    <div className="app">
-      <header className="header">
-        <h1>D20 Sheet</h1>
-        <p>RPG Character Manager</p>
-      </header>
+  if (screen === "characterSheet" && selectedCharacter) {
+    return (
+      <CharacterSheet
+        character={selectedCharacter}
+        goBack={() => setScreen("loadCharacter")}
+      />
+    );
+  }
 
-      <main className="menu">
-        <button onClick={() => setScreen("newCharacter")}>New Character</button>
-        <button onClick={() => setScreen("loadCharacter")}>Load Character</button>
-        <button>Settings</button>
-        <button>About</button>
-      </main>
-
-      <footer className="footer">
-        <small>Version 0.2</small>
-      </footer>
-    </div>
-  );
+  return <Home setScreen={setScreen} />;
 }
 
 export default App;
